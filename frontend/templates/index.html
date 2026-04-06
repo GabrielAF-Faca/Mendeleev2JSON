@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodic Table Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #28a745;
+            margin-top: 10px;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        .btn-primary:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            margin-right: 10px;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .action-buttons {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            background-color: #e2e6ea;
+            color: #333;
+            border: 1px solid #dae0e5;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: 5px;
+        }
+        .btn-small:hover {
+            background-color: #d3d9df;
+        }
+
+        .category-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .category-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .checkbox-label {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        #progress-container {
+            display: none;
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar {
+            width: 50%;
+            height: 100%;
+            background-color: #007bff;
+            position: absolute;
+            animation: loading 1s infinite linear;
+        }
+        @keyframes loading {
+            0% { left: -50%; width: 50%; }
+            100% { left: 100%; width: 50%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Periodic Table Downloader</h1>
+        <p>Select properties grouped by category:</p>
+
+        <div class="action-buttons">
+            <button type="button" id="select-all-btn" class="btn btn-secondary">Select All Properties</button>
+            <button type="button" id="clear-all-btn" class="btn btn-secondary">Clear All Properties</button>
+        </div>
+
+        <form id="download-form" action="{{ fastapi_url }}" method="GET">
+
+            {% for category_name, props in categories.items() %}
+            <div class="category-section">
+                <div class="category-header">
+                    <div class="category-title">{{ category_name }}</div>
+                    <div>
+                        <button type="button" class="btn-small select-cat-btn">Select All</button>
+                        <button type="button" class="btn-small clear-cat-btn">Clear</button>
+                    </div>
+                </div>
+
+                <div class="property-grid">
+                    {% for prop in props %}
+                        {% if prop in ['atomic_number', 'name', 'symbol'] %}
+                            <label class="checkbox-label" style="opacity: 0.6; cursor: not-allowed;">
+                                <input type="checkbox" checked disabled>
+                                {{ prop.replace('_', ' ').title() }} <small>(Req)</small>
+                            </label>
+                            <input type="hidden" name="properties" value="{{ prop }}">
+                        {% else %}
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="properties" value="{{ prop }}">
+                                {{ prop.replace('_', ' ').title() }}
+                            </label>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <button type="submit" id="download-btn" class="btn btn-primary">Download Custom JSON</button>
+
+            <div id="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('select-all-btn').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][name="properties"]:not(:disabled)');
+            checkboxes.forEach(cb => cb.checked = true);
+        });
+
+        document.getElementById('clear-all-btn').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][name="properties"]:not(:disabled)');
+            checkboxes.forEach(cb => cb.checked = false);
+        });
+
+        document.querySelectorAll('.select-cat-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                
+                const section = this.closest('.category-section');
+               	
+                const checkboxes = section.querySelectorAll('input[type="checkbox"][name="properties"]:not(:disabled)');
+                checkboxes.forEach(cb => cb.checked = true);
+            });
+        });
+
+        document.querySelectorAll('.clear-cat-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const section = this.closest('.category-section');
+                const checkboxes = section.querySelectorAll('input[type="checkbox"][name="properties"]:not(:disabled)');
+                checkboxes.forEach(cb => cb.checked = false);
+            });
+        });
+
+        
+        document.getElementById('download-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const btn = document.getElementById('download-btn');
+            const progressContainer = document.getElementById('progress-container');
+
+           
+            const formData = new FormData(form);
+            const queryString = new URLSearchParams(formData).toString();
+            const fetchUrl = `${form.action}?${queryString}`;
+
+            const elementosInterativos = document.querySelectorAll('button, input:not(:disabled)');
+            elementosInterativos.forEach(el => el.disabled = true);
+
+            progressContainer.style.display = 'block';
+            btn.innerText = 'Processing...';
+
+            try {
+                
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'custom_table.json';
+                document.body.appendChild(a);
+
+                a.click();
+
+                a.remove();
+                window.URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('Error downloading file:', error);
+                alert('Houve um erro ao gerar o arquivo. Verifique se o backend FastAPI está rodando!');
+            } finally {
+            
+                progressContainer.style.display = 'none';
+                btn.innerText = 'Download Custom JSON';
+                elementosInterativos.forEach(el => el.disabled = false);
+            }
+        });
+    </script>
+</body>
+</html>

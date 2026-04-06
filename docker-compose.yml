@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  api_backend:
+    build: ./backend
+    container_name: tabela_backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  web_frontend:
+    build: ./frontend
+    container_name: tabela_frontend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - api_backend
+    restart: unless-stopped
