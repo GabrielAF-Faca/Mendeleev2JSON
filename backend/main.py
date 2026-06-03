@@ -56,6 +56,12 @@ def download_custom_table(
                 if isinstance(val, dict):
                     val = {str(k): v for k, v in val.items()}
 
+                elif isinstance(val, list):
+                    val = [extract_obj_data(item) for item in val]
+                
+                else:
+                    val = extract_obj_data(val)
+
                 element_data[prop] = val
                     
             except AttributeError:
@@ -72,6 +78,11 @@ def download_custom_table(
     json_formatted = json.dumps(filtered_data, indent=4, default=str)
 
     return Response(content=json_formatted, media_type="application/json", headers=headers)
+
+def extract_obj_data(obj):
+    if hasattr(obj, "__dict__"):
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    return obj
 
 @app.get("/available-properties")
 def list_properties():
