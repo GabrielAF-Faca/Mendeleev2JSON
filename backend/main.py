@@ -46,33 +46,29 @@ def download_custom_table(
 
         for prop in properties:
             try:
-                # Recupera o atributo da biblioteca
                 attr = getattr(el, prop)
                 
-                # Verifica se o atributo é um método executável
                 if callable(attr):
-                    # Se for um método (ex: nvalence), executa e salva o retorno
-                    element_data[prop] = attr()
+                    val = attr()
                 else:
-                    # Se for uma propriedade normal, salva diretamente
-                    element_data[prop] = attr
+                    val = attr
+
+                if isinstance(val, dict):
+                    val = {str(k): v for k, v in val.items()}
+
+                element_data[prop] = val
                     
             except AttributeError:
                 element_data[prop] = None
             except Exception as e:
-                # Tratamento extra caso algum método da biblioteca falhe ou exija argumentos que não passamos
                 print(f"Erro ao processar a propriedade '{prop}' no elemento {el.symbol}: {e}")
                 element_data[prop] = None
 
-        # --- DICA DE SEGURANÇA ---
-        # Garantimos que 'symbol' seja usado como chave apenas se estiver no dicionário.
-        # Caso o front-end não envie 'symbol' na requisição, usamos o ID ou outro identificador para evitar KeyError.
         key = element_data.get("symbol", el.symbol) 
         filtered_data[key] = element_data
 
     headers = {"Content-Disposition": "attachment; filename=custom_table.json"}
 
-    # Opcional: Adicionar default=str no json.dumps se a biblioteca retornar objetos complexos (ex: datas)
     json_formatted = json.dumps(filtered_data, indent=4, default=str)
 
     return Response(content=json_formatted, media_type="application/json", headers=headers)
